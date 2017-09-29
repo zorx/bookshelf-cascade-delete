@@ -8,6 +8,10 @@ var _extends2 = require('babel-runtime/helpers/extends');
 
 var _extends3 = _interopRequireDefault(_extends2);
 
+var _defineProperty2 = require('babel-runtime/helpers/defineProperty');
+
+var _defineProperty3 = _interopRequireDefault(_defineProperty2);
+
 var _toConsumableArray2 = require('babel-runtime/helpers/toConsumableArray');
 
 var _toConsumableArray3 = _interopRequireDefault(_toConsumableArray2);
@@ -56,6 +60,7 @@ exports.default = function (Bookshelf) {
         key: relatedData.key('foreignKey'),
         model: relatedData.target,
         skipDependents: skipDependents,
+        softDelete: relatedData.target.prototype.softDelete,
         tableName: skipDependents ? relatedData.joinTable() : relatedData.target.prototype.tableName
       }]);
     }, []);
@@ -75,11 +80,17 @@ exports.default = function (Bookshelf) {
       var tableName = _ref.tableName,
           key = _ref.key,
           model = _ref.model,
-          skipDependents = _ref.skipDependents;
+          skipDependents = _ref.skipDependents,
+          softDelete = _ref.softDelete;
 
       var whereClause = (quoteColumns ? '"' + key + '"' : key) + ' IN (' + parentValue + ')';
 
       return [].concat((0, _toConsumableArray3.default)(result), [function (transaction) {
+        if (softDelete) {
+          var columnName = softDelete === true ? 'deleted_at' : softDelete;
+          // const date = options.date ? new Date(options.date) : new Date()
+          return transaction(tableName).update((0, _defineProperty3.default)({}, columnName, new Date())).whereRaw(whereClause);
+        }
         return transaction(tableName).del().whereRaw(whereClause);
       }, skipDependents ? [] : recursiveDeletes.call(model, knex(tableName).column(model.prototype.idAttribute).whereRaw(whereClause))]);
     }, []);

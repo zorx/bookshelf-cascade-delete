@@ -35,6 +35,7 @@ export default Bookshelf => {
           key: relatedData.key('foreignKey'),
           model: relatedData.target,
           skipDependents,
+          softDelete: relatedData.target.prototype.softDelete,
           tableName: skipDependents ? relatedData.joinTable() : relatedData.target.prototype.tableName
         }
       ];
@@ -51,12 +52,19 @@ export default Bookshelf => {
     const dependencies = dependencyMap.call(this);
 
     // Build delete queries for each dependent.
-    return reduce(dependencies, (result, { tableName, key, model, skipDependents }) => {
+    return reduce(dependencies, (result, { tableName, key, model, skipDependents, softDelete }) => {
       const whereClause = `${quoteColumns ? `"${key}"` : key} IN (${parentValue})`;
 
       return [
         ...result,
-        transaction => transaction(tableName).del().whereRaw(whereClause),
+        transaction => {
+          if (softDelete) {
+            const columnName = (softDelete === true ? 'deleted_at' : softDelete);
+            // const date = options.date ? new Date(options.date) : new Date()
+            return transaction(tableName).update({ [columnName]: new Date() }).whereRaw(whereClause);
+          }
+          return transaction(tableName).del().whereRaw(whereClause);
+        },
         skipDependents ? [] : recursiveDeletes.call(model, knex(tableName).column(model.prototype.idAttribute).whereRaw(whereClause))
       ];
     }, []);
